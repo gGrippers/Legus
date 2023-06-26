@@ -1,5 +1,8 @@
 from pydantic import BaseModel
 
-class User(BaseModel):
-    id: str
+from server.model.enums import PlayerColor
+
+class Player(BaseModel):
+    id: int
     name: str
+    color: PlayerColor
