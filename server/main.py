@@ -14,6 +14,8 @@ def create_room(room_name: str, creator_id: int):
 
 @app.post("/rooms/{room_id}")
 def join_room(room_id: int, user_id: int):
+    # assume room exists
+    # tell them their color
     return {}
 
 
