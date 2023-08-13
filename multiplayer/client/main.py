@@ -3,15 +3,55 @@
 import asyncio
 import websockets
 from getkey import getkey, keys
-user = User()
-room = Room()
+
+class User:
+    def __init__(self, id, name):
+        self.id = id
+        self.name = name
+
+    def __dict__(self):
+        return {"id": self.id, "name": self.name}
+
+    @staticmethod
+    def from_dict(dict):
+        return User(dict["id"], dict["name"])
+
+class Game:
+    pass
+
+user = User(0, "Juanito")
+room = None
 game = Game()
 
-def create_room_request(code: str):
-    pass
+async def create_room_request(code: str):
+    return {"method": "createRoom", "payload": {"roomId": code, "user": user.__dict__()}}
 
-def join_room_request(code: str):
-    pass
+async def join_room_request(code: str):
+    return {"method": "joinRoom", "payload": {"roomId": code, "user": user.__dict__()}}
+
+def handle_room_message(message):
+    if message["method"] == "roomUpdate":
+        if message["type"] == "join":
+            room["players"].append(message["user"])
+        else:
+            room["players"] = filter(lambda user: user.id != message["user"].id, room["players"])
+
+def handle_room_error(error):
+    error_type = error["errorType"]
+    if error_type == "RoomAlreadyExists":
+        print("Room already exists")
+    elif error_type == "RoomDoesNotExist":
+        print("Room does not exist")
+
+def parse_room_from_response(response):
+    global room
+    if response["method"] != "roomResponse":
+        print("Invalid response")
+        return
+    room = response["payload"]
+
+def show_room_screen():
+    print("Q: to exit")
 
 async def listen_in_room(websocket):
     while True:
@@ -19,6 +59,7 @@ async def listen_in_room(websocket):
         handle_room_message(message)
         
 async def handle_user_input_in_room(websocket):
+    global room
     while True:
         key = getkey(False)
         asyncio.sleep(0) # ensure the loop doesn't hog the event loop
@@ -37,10 +78,10 @@ async def main():
         request = ""
         if key == "C":
             roomCode = input("Type the name of your room: ")
-            request = create_room_request(roomCode)
+            request = await create_room_request(roomCode)
         elif key == "J":
             roomCode = input("Type the name of the room you'd like to join: ")
-            request = join_room_request(roomCode)
+            request = await join_room_request(roomCode)
         else:
             continue
         # We want to try to get them to join a room
@@ -48,7 +89,7 @@ async def main():
         async with websockets.connect(uri) as websocket:
             await websocket.send(request)
             room_response: str = await websocket.recv()
-            if room_response is "error": #handle room join failure
+            if room_response["method"] == "roomError": #handle room join failure
                 handle_room_error(room_response)
                 continue # go back to start screen
             room = parse_room_from_response(room_response)
